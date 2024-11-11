@@ -1,6 +1,6 @@
 import os
 import re
-from maputils import bands, merge_multi_band
+from maputils import bands
 # from maputils import merge_multi_band
 from maputils import merge_bands
 from maputils import save_multi_image
@@ -58,7 +58,7 @@ def progress_file(path: str = root_path, save_path: str = "../loc3_merge_img/"):
         full_name = full_name.replace("\\", '/')  # 符号统一
         # 拼接好的路径用来进行合成
         #merge_img = merge_bands(full_name, param2, param1)
-        merge_img= merge_multi_band(full_name,param2,param1)
+        merge_img= merge_bands(full_name,param2,param1)
         # 保存图像
         save_file = f'{save_path}{dir_n}.jp2'
         save_multi_image(merge_img, save_file)
