@@ -16,7 +16,7 @@
     print(extract_dates(path3))
     progress_file(path3,"../loc3_merge_img/")
 
-    path4="../loc1/sentinel2"
+    path4="../loc4/sentinel2"
     print("loc4:")
     print(extract_dates(path4))
     progress_file(path4,"../loc4_merge_img/")
