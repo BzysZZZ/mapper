@@ -1,10 +1,5 @@
-import os
-import re
-from maputils import bands
-# from maputils import merge_multi_band
 from maputils import merge_bands
 from maputils import save_multi_image
-import geopandas as gpd
 
 root_path = f"../loc3/sentinel2"
 output_img_dir = f"../loc3_merge_img/img"
@@ -46,7 +41,7 @@ def progress_file(path: str = root_path, save_path: str = "../loc3_merge_img/"):
 
     """对文件夹列表的数据分别拼接路径并合并输出"""
     for dir_n in file_list:
-        match1 = re.search(r'(\d{8}T\d{6}).*?(T10VFL|T10SGH|T10SFJ)', dir_n)  # 获得param1和param2参数
+        match1 = re.search(r'(\d{8}T\d{6}).*?(T10VFL|T10SGH|T10SFJ|T10VDH|T10VCH)', dir_n)  # 获得param1和param2参数
         param1 = match1.group(1)  # 日期
         param2 = match1.group(2)  # T10VFL
         full_name = os.path.join(path, dir_n, root_suffix1)  # 合并前缀
@@ -58,10 +53,10 @@ def progress_file(path: str = root_path, save_path: str = "../loc3_merge_img/"):
         full_name = full_name.replace("\\", '/')  # 符号统一
         # 拼接好的路径用来进行合成
         #merge_img = merge_bands(full_name, param2, param1)
-        merge_img= merge_bands(full_name,param2,param1)
+        merge_img,meta = merge_bands(full_name, param2, param1)
         # 保存图像
         save_file = f'{save_path}{dir_n}.jp2'
-        save_multi_image(merge_img, save_file)
+        save_multi_image(merge_img,save_file,meta)
 
         print(f"{dir_n}处理完成")
 
@@ -78,7 +73,6 @@ def return_suffix(root_path: str):
     return 1
 
 
-import os
 import geopandas as gpd
 
 
@@ -127,9 +121,6 @@ def separate_data_of_mask(input_shp: str,output_dir: str):
 
     print("切分完成")
 
-
-import os
-import re
 
 import os
 import re
@@ -192,8 +183,8 @@ def find_common_dates(base_path: str, loc_count: int):
 
 
 if __name__ == '__main__':
-    path1 = "../loc1/sentinel2"
-    print("loc1:")
-    print(extract_dates(path1))
-    progress_file(path1, "../loc6_merge_img/")
 
+    path4 = "../loc4/sentinel2"
+    print("loc4:")
+    print(extract_dates(path4))
+    progress_file(path4, "../loc4_merge_img/")
