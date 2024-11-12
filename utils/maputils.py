@@ -134,50 +134,91 @@ def open_mask(mask_path: str):
         print("Count (number of bands):", src.count)
 
 
-def show_multi_img(path: str, ch1=None, ch2=None, ch3=None):
-    """显示多波段图像的RGB合成图，支持归一化为 Uint16 格式
-    img_path=f'{base_path}T10VFL_20230829T192911_TCI_20m.jp2'
+def show_multi_img(path: str):
+    """显示多波段图像，自动判断单波段、三波段或多波段图像并显示。
+
+    - 单波段：显示灰度图。
+    - 三波段：默认 RGB 显示。
+    - 其他波段数：要求用户输入显示的波段序号。
     """
     with rasterio.open(path) as src:
-        # 确保图像至少有3个波段
-        if src.count < 3:
-            raise ValueError(f"图像 {path} 至少需要3 个波段来显示RGB图像，但当前只有 {src.count} 个波段。")
+        band_count = src.count
 
-        if (ch1 is not None) and (ch2 is not None) and (ch3 is not None):  # rgb序号为13 14 15
-            red = src.read(ch1).astype(float)
-            green = src.read(ch2).astype(float)
-            blue = src.read(ch3).astype(float)
-        else:
+        if band_count == 1:
+            # 单波段：显示灰度图
+            band = src.read(1).astype(float)
+            plt.imshow(band, cmap='gray')
+            plt.title("Single Band Grayscale Image")
+            plt.axis('off')
+            plt.show()
+
+        elif band_count == 3:
+            # 三波段：默认 RGB 显示
             red = src.read(1).astype(float)
             green = src.read(2).astype(float)
             blue = src.read(3).astype(float)
+            rgb = np.stack((red, green, blue), axis=-1)
+            min_val = rgb.min()
+            max_val = rgb.max()
+            range_val = max_val - min_val
 
-        # 堆叠为RGB图像
-        rgb = np.stack((red, green, blue), axis=-1)
+            if range_val == 0:
+                print("图像中所有像素值相同，显示全零图像。")
+                rgb_normalized = np.zeros_like(rgb, dtype=np.uint16)
+            else:
+                rgb_normalized = ((rgb - min_val) / range_val * 65535).astype(np.uint16)
 
-        # 归一化为Uint16
-        min_val = rgb.min()
-        max_val = rgb.max()
-        range_val = max_val - min_val
+            # 转换为 0-255 范围的 uint8 类型以供显示
+            rgb_display = (rgb_normalized / 256).astype(np.uint8)
 
-        if range_val == 0:
-            print(f"图像 {path} 中的所有像素值相同，无法进行归一化。显示全零图像。")
-            # 使用全零图像，或者其他替代方案
-            rgb_normalized = np.zeros_like(rgb, dtype=np.uint16)
+            plt.imshow(rgb_display)
+            plt.title("RGB Image from Multiband Raster")
+            plt.axis('off')
+            plt.show()
+
         else:
-            rgb_normalized = ((rgb - min_val) / range_val * 65535).astype(np.uint16)
+            # 多波段：要求用户输入波段序号
+            while True:
+                user_input = input(
+                    f"图像有 {band_count} 个波段，请输入1个或3个波段序号（1 开始）进行显示：").strip().split()
+                band_indices = [int(i) for i in user_input if i.isdigit()]
 
-        # 将归一化后的图像转换为0-255的范围，并转换为无符号8位整数，用于显示
-        rgb_display = (rgb_normalized / 256).astype(np.uint8)  # 显示时使用 uint8 转换（0-255）
+                if len(band_indices) == 1:
+                    # 显示单波段灰度图
+                    band = src.read(band_indices[0]).astype(float)
+                    plt.imshow(band, cmap='gray')
+                    plt.title(f"Band {band_indices[0]} Grayscale Image")
+                    plt.axis('off')
+                    plt.show()
+                    break
 
-        # 显示图像
-        plt.imshow(rgb_display)
-        plt.title("RGB Image from Multiband Raster")
-        plt.axis('off')  # 隐藏坐标轴
-        plt.show()
+                elif len(band_indices) == 3:
+                    # 显示三波段 RGB 图像
+                    red = src.read(band_indices[0]).astype(float)
+                    green = src.read(band_indices[1]).astype(float)
+                    blue = src.read(band_indices[2]).astype(float)
+                    rgb = np.stack((red, green, blue), axis=-1)
+                    min_val = rgb.min()
+                    max_val = rgb.max()
+                    range_val = max_val - min_val
 
+                    if range_val == 0:
+                        print("图像中所有像素值相同，显示全零图像。")
+                        rgb_normalized = np.zeros_like(rgb, dtype=np.uint16)
+                    else:
+                        rgb_normalized = ((rgb - min_val) / range_val * 65535).astype(np.uint16)
 
-# 示例调用
+                    # 转换为 0-255 范围的 uint8 类型以供显示
+                    rgb_display = (rgb_normalized / 256).astype(np.uint8)
+
+                    plt.imshow(rgb_display)
+                    plt.title("RGB Image from Multiband Raster")
+                    plt.axis('off')
+                    plt.show()
+                    break
+
+                else:
+                    print("输入不合法，请重新输入 1 个或 3 个有效的波段序号。")
 
 def crop_img_to_patches(image, patch_size=512, output_dir="patches"):
     """图像切割为512*512
@@ -206,13 +247,13 @@ def crop_img_to_patches(image, patch_size=512, output_dir="patches"):
                                 min(patch_size, img_width - col_start),
                                 min(patch_size, img_height - row_start))
                 patch_data = src.read(window=window)
-                patch_transfrom = src.window_transform(window)
+                patch_transform = src.window_transform(window)
                 patch_meta = src.meta.copy()
                 patch_meta.update({
                     "driver": "JP2OpenJPEG",
                     "height": window.height,
                     "width": window.width,
-                    "transform": patch_transfrom
+                    "transform": patch_transform
                 })
                 patch_filename = os.path.join(
                     output_dir,
@@ -237,6 +278,6 @@ if __name__ == '__main__':
     # save_multi_image(merge_multi_band())
     # open_mask()
     # patch_img = "../utils/patches/patch_0_5.jp2"
-    # file = f'../loc3_merge_img/S2A_MSIL2A_20230816T191911_N0509_R099_T10VFL_20230817T022001.SAFE.jp2'
-    # show_multi_img(file,13,14,15)
+    file = f'../loc1_merge_img/S2B_MSIL2A_20230424T184919_N0509_R113_T10SFJ_20230424T215033.SAFE.jp2'
+    show_multi_img(file)
     # crop_img_to_patches(img_path)
