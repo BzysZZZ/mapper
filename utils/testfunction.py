@@ -2,6 +2,8 @@
 import os
 import re
 
+import rasterio
+
 from utils.fileutils import return_suffix, root_suffix1, root_path, root_suffix2
 from utils.maputils import merge_bands, save_multi_image
 
@@ -64,7 +66,11 @@ def _test_progress_file(path: str = root_path, save_path: str = "../loc3_merge_i
 
 
 if __name__ == '__main__':
-    path = f"../loc1/sentinel2"
-    save_path = f"../loc6_merge_img/"
-    _test_progress_file(path, save_path)
-
+    img="../loc1/sentinel2/S2A_MSIL2A_20230409T184921_N0509_R113_T10SFJ_20230409T233253.SAFE/GRANULE/L2A_T10SFJ_A040722_20230409T190314/IMG_DATA/R20m/T10SFJ_20230409T184921_AOT_20m.jp2"
+    img1="../loc1_merge_img/S2A_MSIL2A_20230409T184921_N0509_R113_T10SFJ_20230409T233253.SAFE.jp2"
+    with rasterio.open(img)as src:
+        print(src.transform)
+        print(src.crs)
+    with rasterio.open(img1)as src:
+        print(src.transform)
+        print(src.crs)
