@@ -40,4 +40,5 @@
 合并为uint16均已实现，旧版本不再留存<br>
 ***[11.11完成]***<br>
 ---
-cututils工具待优化
+cututils工具待优化<br>
+修改了show_multi_img()方法
