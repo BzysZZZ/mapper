@@ -1,3 +1,6 @@
+import numpy as np
+from PIL import Image
+
 from maputils import merge_bands
 from maputils import save_multi_image
 
@@ -41,22 +44,23 @@ def progress_file(path: str = root_path, save_path: str = "../loc3_merge_img/"):
 
     """对文件夹列表的数据分别拼接路径并合并输出"""
     for dir_n in file_list:
-        match1 = re.search(r'(\d{8}T\d{6}).*?(T10VFL|T10SGH|T10SFJ|T10VDH|T10VCH)', dir_n)  # 获得param1和param2参数
+        match1 = re.search(
+            r'(\d{8}T\d{6}).*?(T10VFL|T10SGH|T10SFJ|T10VDH|T10VCH|T13QEB|T11VLE|T10VFK|T11VLF|T12VUL|T12VVL|T12VVM|T12VUM|T12VVN|T11VMH)',
+            dir_n)  # 获得param1和param2参数
         param1 = match1.group(1)  # 日期
         param2 = match1.group(2)  # T10VFL
         full_name = os.path.join(path, dir_n, root_suffix1)  # 合并前缀
         suffix = return_suffix(full_name)  # 前缀2
-        #print(full_name,",",suffix,",",root_suffix2)
-
+        # print(full_name,",",suffix,",",root_suffix2)
 
         full_name = os.path.join(full_name, suffix, root_suffix2)  # 合并前缀2，前缀3
         full_name = full_name.replace("\\", '/')  # 符号统一
         # 拼接好的路径用来进行合成
-        #merge_img = merge_bands(full_name, param2, param1)
-        merge_img,meta = merge_bands(full_name, param2, param1)
+        # merge_img = merge_bands(full_name, param2, param1)
+        merge_img, meta = merge_bands(full_name, param2, param1)
         # 保存图像
         save_file = f'{save_path}{dir_n}.jp2'
-        save_multi_image(merge_img,save_file,meta)
+        save_multi_image(merge_img, save_file, meta)
 
         print(f"{dir_n}处理完成")
 
@@ -76,8 +80,17 @@ def return_suffix(root_path: str):
 import geopandas as gpd
 
 
-def separate_data_of_mask(input_shp: str,output_dir: str):
-    """按照日期切分标签"""
+def separate_data_of_mask(input_shp: str, output_dir: str):
+    """
+    按日期字段切分 Shapefile，并将结果保存到对应文件夹中。
+
+    参数:
+    - input_shp: str, 输入 Shapefile 文件路径。
+    - output_dir: str, 输出目录路径。
+    """
+    # 确保输出目录存在
+    os.makedirs(output_dir, exist_ok=True)
+
     print(f"开始读取输入 Shapefile: {input_shp}")
 
     # 读取输入 Shapefile
@@ -125,15 +138,16 @@ def separate_data_of_mask(input_shp: str,output_dir: str):
 import os
 import re
 from datetime import datetime
+import json
 
 
 def extract_data_dates(path: str):
     """提取每个 loc 中的数据日期，并格式化为 YYYY-MM-DD"""
     date_list = []
-    date_pattern = re.compile(r'MSIL2A_(\d{8})')
+    date_pattern = re.compile(r'MSIL2A_(\d{8})')  # 根据文件名中匹配日期的正则表达式
     for root, dirs, files in os.walk(path):
         for dir_name in dirs:
-            match = date_pattern.search(dir_name)
+            match = date_pattern.search(dir_name)  # 从目录名中提取日期
             if match:
                 # 格式化为 YYYY-MM-DD
                 date_str = datetime.strptime(match.group(1), "%Y%m%d").strftime("%Y-%m-%d")
@@ -145,13 +159,13 @@ def extract_label_dates(path: str):
     """提取每个 loc 的标签日期"""
     date_list = []
     for item in os.listdir(path):
-        if os.path.isdir(os.path.join(path, item)):
+        if os.path.isdir(os.path.join(path, item)):  # 判断是否是文件夹
             date_list.append(item)
     return sorted(date_list)
 
 
 def find_common_dates(base_path: str, loc_count: int):
-    """查找每个 loc 的数据日期和标签日期的交集，并保存到文件"""
+    """查找每个 loc 的数据日期和标签日期的交集，并保存到 JSON 文件"""
     result = {}
 
     # 遍历每个 loc 目录
@@ -173,18 +187,97 @@ def find_common_dates(base_path: str, loc_count: int):
         print(f'loc{i} 标签日期: {label_dates}')
         print(f'loc{i} 交集日期: {common_dates}\n')
 
-    # 将结果保存到文件中
-    with open('../ava_date.txt', 'w') as file:
-        for loc, dates in result.items():
-            file.write(f"{loc}: {dates}\n")
+    # 将结果保存到 JSON 文件中
+    output_file = '../ava_date.json'
+    with open(output_file, 'w') as json_file:
+        json.dump(result, json_file, indent=4)
 
-    print("所有 loc 的日期交集已保存到 ../ava_date.txt")
+    print(f"所有 loc 的日期交集已保存到 {output_file}")
 
+
+
+import rasterio
+from rasterio.windows import Window
+from rasterio.enums import Resampling
+
+
+def split_tif_with_overlap(input_dir, output_dir, tile_size=512, overlap=32):
+    """
+    Splits all .tif files in a directory into smaller tiles with overlapping edges.
+    Handles multi-band TIFF files using rasterio.
+
+    Parameters:
+    - input_dir: str, path to the folder containing the input .tif files.
+    - output_dir: str, path to the folder where the output tiles will be saved.
+    - tile_size: int, the size of each tile (default is 512x512).
+    - overlap: int, the number of pixels to overlap between tiles (default is 32).
+    """
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    for filename in os.listdir(input_dir):
+        if filename.endswith('.tif') and not filename.endswith('.tif.enp'):
+            input_path = os.path.join(input_dir, filename)
+            base_name = os.path.splitext(filename)[0]
+
+            with rasterio.open(input_path) as src:
+                height, width = src.height, src.width
+                bands = src.count
+
+                step = tile_size - overlap
+                tile_count = 0
+
+                for y in range(0, height, step):
+                    for x in range(0, width, step):
+                        # Define window with overlap
+                        window = Window(
+                            col_off=max(0, x - overlap),
+                            row_off=max(0, y - overlap),
+                            width=min(tile_size + overlap, width - x + overlap),
+                            height=min(tile_size + overlap, height - y + overlap),
+                        )
+
+                        # Read data for the defined window
+                        data = src.read(
+                            window=window,
+                            out_shape=(
+                                bands,
+                                window.height,
+                                window.width
+                            ),
+                            resampling=Resampling.nearest
+                        )
+
+                        # Save tile
+                        tile_filename = f"{base_name}_tile_{tile_count:04d}.tif"
+                        tile_output_path = os.path.join(output_dir, tile_filename)
+
+                        profile = src.profile
+                        profile.update({
+                            "height": window.height,
+                            "width": window.width,
+                            "transform": rasterio.windows.transform(window, src.transform)
+                        })
+
+                        with rasterio.open(tile_output_path, "w", **profile) as dst:
+                            dst.write(data)
+
+                        tile_count += 1
+
+            print(f"Processed {filename}, saved {tile_count} tiles.")
+
+
+def count_tif_files_in_patch(x: int = 8):
+    total_count = 0
+    for loc in [f"../loc{i}patch" for i in range(2, x + 1)]:
+        patch_dir = os.path.join(loc, "patch")
+        if os.path.exists(patch_dir):
+            for file in os.listdir(patch_dir):
+                file_path = os.path.join(patch_dir, file)
+                if os.path.isfile(file_path) and file.endswith('.tif'):
+                    total_count += 1
+    return total_count
 
 
 if __name__ == '__main__':
-
-    path4 = "../loc4/sentinel2"
-    print("loc4:")
-    print(extract_dates(path4))
-    progress_file(path4, "../loc4_merge_img/")
+    find_common_dates("E:/mapper",8)

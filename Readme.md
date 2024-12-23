@@ -1,24 +1,41 @@
 ## 图像处理
-### 1.合并    (loc1 loc2 loc3 loc4 已完成)
+### 1.合并波段
 ```python
-    path1="../loc1/sentinel2"
-    print("loc1:")
-    print(extract_dates(path1))
-    progress_file(path1,"../loc1_merge_img/")
+path1="../loc1/sentinel2"
+print("loc1:")
+print(extract_dates(path1))
+progress_file(path1,"../loc1_merge_img/")
 
 ```
-### 2.分割标记 (均完成)
+### 2.分割标记 
 ```python
-    input_shp = "../loc1/DL_FIRE_LS_539039/fire_nrt_LS_539039.shp"
-    output_dir = "../../loc1output"
-    separate_data_of_mask(output_dir, input_shp)
+input_shp = "../loc8/DL_FIRE_J1V-C2_548064/fire_nrt_J1V-C2_548064.shp"
+output_dir = "../loc8output"
+separate_data_of_mask(input_shp, output_dir)
 ```
 ### 3.日期并集
+查找火点和数据的并集日期
 ```python
-    base_path='../'
-    loc_count=4
-    find_common_dates(base_path,loc_count)
+base_path='../'
+loc_count=8
+find_common_dates(base_path,loc_count)
 ```
+### 4.精细裁剪
+默认裁剪大小为512*512,边缘重叠32px
+```python 
+input_dir="../loc1patch"
+output_dir="../loc1patch/patch"
+split_tif_with_overlap(input_dir,output_dir)
+```
+
+### 5.数据总数
+参数x设定为2-x文件夹默认8,即loc2到loc8
+```python
+tif_count = count_tif_files_in_patch()
+print(f"总和: {tif_count}")
+```
+
+
 ***[11.10完成]***
 
 ---
@@ -60,9 +77,28 @@ roi文件命名：{loc}_roi_{i}.xml<br>
 ```
 1. cututils工具不支持写图片坐标已弃用（但是保留了其他完整功能）
 2. 重新完成了对10波段的文件合并和检查
-3. 完成了loc2和loc3的大patch分割
+3. 完成了loc2和loc3的大tile分割
 
 ***[11.12完成]***
 
 ---
 loc3_0816号图片没有下载标签
+
+---
+
+
+| 1.文件合成 | 2.火点下载 | 3.火点切分 | 4.火点裁剪 | 5.精细裁剪 | 数量   |
+|--------|--------|--------|--------|--------|------|
+| loc1   | ---    | ---    | ---    | ---    | 弃用   |
+| loc2   | 完成     | 完成     | 完成     | 完成     | 48   |
+| loc3   | 完成     | 完成     | 完成     | 完成     | 150  |
+| loc4   | 完成     | 完成     | 完成     | 完成     | 125  |
+| loc5   | 完成     | 完成     | 完成     | 完成     | 9    |
+| loc6   | 完成     | 完成     | 完成     | 完成     | 151  |
+| loc7   | 完成     | 完成     | 完成     | 完成     | 153  |
+| loc8   | 完成     | 完成     | 完成     | 完成     | 443  |
+| SUM    |        |        |        |        | 1079 |
+***[11.23]***
+
+## 标签处理
+手动转换
